@@ -54,9 +54,12 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 	const char				*user;
 	const char				*pass;
 	const char				*domain;
+	char					*self_service;
+	char					*target_service;
 	struct cli_credentials			*credentials;
 	bool					acquired_creds = false;
 	bool					machine_account;
+	bool					delegated;
 
 	OC_DEBUG(5, "mapiproxy::mapiproxy_op_connect");
 
@@ -71,6 +74,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 	/* Retrieve parametric options */
 	machine_account = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "use_machine_account", false);
+	delegated = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "delegated_auth", false);
 	user = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "username");
 	pass = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "password");
 	domain = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "domain");
@@ -104,6 +108,99 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		status = cli_credentials_set_machine_account(credentials, dce_call->conn->dce_ctx->lp_ctx);
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
+		}
+	} else if (delegated) {
+		/* Constrained delegation requires the S4U2Self and S4U2Proxy extensions in Kerberos */
+		DEBUG(5, ("dcerpc_mapiproxy: RPC proxy: Using machine account with constrained delegation\n"));
+		credentials = cli_credentials_init(private);
+		if (!credentials) {
+			return NT_STATUS_NO_MEMORY;
+		}
+		cli_credentials_set_conf(credentials, dce_call->conn->dce_ctx->lp_ctx);
+		status = cli_credentials_set_machine_account(credentials, dce_call->conn->dce_ctx->lp_ctx);
+		if (!NT_STATUS_IS_OK(status)) {
+			return status;
+		}
+
+		DEBUG(5, ("Impersonating %s\n", dce_call->conn->auth_state.session_info->info->account_name));
+
+		/* Determine what interface this is, the service principal names are different for each service */
+		if (table->name && !strcmp(table->name, NDR_EXCHANGE_DS_RFR_NAME)) {
+			struct dcerpc_binding		*b;
+
+			/* Set the desired principal (authenticated client) and our own service principal name (SPN) for S4U2Self stage */
+			self_service = talloc_asprintf(dce_call,"exchangeRFR/%s.%s", lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+			cli_credentials_set_impersonate_principal(credentials, dce_call->conn->auth_state.session_info->info->account_name, self_service);
+			talloc_free(self_service);
+
+			/* Parse binding string to determine the hostname of the target */
+			status = dcerpc_parse_binding(dce_call->context, binding, &b);
+			if (!NT_STATUS_IS_OK(status)) {
+				DEBUG(0, ("Failed to parse dcerpc binding '%s'\n", binding));
+				return status;
+			}
+
+			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
+			char* properHostname = strupper_talloc(dce_call,b->host);
+			target_service = talloc_asprintf(dce_call,"exchangeRFR/%s", properHostname);
+			cli_credentials_set_target_service(credentials, target_service);
+			talloc_free(target_service);
+			talloc_free(properHostname);
+		}
+		else if (table->name && !strcmp(table->name, NDR_EXCHANGE_NSP_NAME)) {
+			struct dcerpc_binding		*b;
+
+			/* Set the desired principal (authenticated client) and our own service principal name (SPN) for S4U2Self stage */
+			self_service = talloc_asprintf(dce_call,"exchangeAB/%s.%s", lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+			cli_credentials_set_impersonate_principal(credentials, dce_call->conn->auth_state.session_info->info->account_name, self_service);
+			talloc_free(self_service);
+
+			/* The NSP interface isn't likely found on the main target, it could be on a different server like the domain controller */
+			binding = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "nsp_binding");
+			if (!binding) {
+				DEBUG(0, ("You must specify a DCE/RPC binding string for the exchange_nsp interface using nsp_binding\n"));
+				return NT_STATUS_INVALID_PARAMETER;
+			}
+
+			/* Parse binding string to determine the hostname of the target */
+			status = dcerpc_parse_binding(dce_call->context, binding, &b);
+			if (!NT_STATUS_IS_OK(status)) {
+				DEBUG(0, ("Failed to parse dcerpc binding '%s'\n", binding));
+				return status;
+			}
+
+			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
+			char* properHostname = strupper_talloc(dce_call,b->host);
+			target_service = talloc_asprintf(dce_call,"exchangeAB/%s",properHostname);
+			cli_credentials_set_target_service(credentials, target_service);
+			talloc_free(target_service);
+			talloc_free(properHostname);
+		}
+		else if (table->name && !strcmp(table->name, NDR_EXCHANGE_EMSMDB_NAME))	{
+			struct dcerpc_binding		*b;
+
+			/* Set the desired principal (authenticated client) and our own service principal name (SPN) for S4U2Self stage */
+			self_service = talloc_asprintf(dce_call,"exchangeMDB/%s.%s", lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+			cli_credentials_set_impersonate_principal(credentials, dce_call->conn->auth_state.session_info->info->account_name, self_service);
+			talloc_free(self_service);
+
+			/* Parse binding string to determine the hostname of the target */
+			status = dcerpc_parse_binding(dce_call->context, binding, &b);
+			if (!NT_STATUS_IS_OK(status)) {
+				DEBUG(0, ("Failed to parse dcerpc binding '%s'\n", binding));
+				return status;
+			}
+
+			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
+			char* properHostname = strupper_talloc(dce_call,b->host);
+			target_service = talloc_asprintf(dce_call,"exchangeMDB/%s", properHostname);
+			cli_credentials_set_target_service(credentials, target_service);
+			talloc_free(target_service);
+			talloc_free(properHostname);
+		}
+		else {
+			DEBUG(0, ("Unknown interface not supported for constrained delegation.\n"));
+			return NT_STATUS_INVALID_PARAMETER;
 		}
 	} else if (dcesrv_call_credentials(dce_call)) {
 		OC_DEBUG(5, "dcerpc_mapiproxy: RPC proxy: Using delegated credentials");
@@ -228,9 +325,8 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	char					*server_id_printable = NULL;
 	
 	server_id_printable = server_id_str(NULL, &(dce_call->conn->server_id));
-	OC_DEBUG(5, "[session = 0x%x] [session server id = %s]\n",
-		  dce_call->context->context_id,
-		  server_id_printable);
+	DEBUG(5, ("mapiproxy::mapiproxy_op_bind: [session = 0x%x] [session server id = %s] [interface = %s]\n", 
+		  dce_call->context->context_id, server_id_printable, iface->name)); 
 	talloc_free(server_id_printable);
 
 	OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: [session = 0x%x] [session server id = 0x%"PRIx64" 0x%x 0x%x]", dce_call->context->context_id,
@@ -438,7 +534,6 @@ static NTSTATUS mapiproxy_op_ndr_push(struct dcesrv_call_state *dce_call, TALLOC
 
 	return NT_STATUS_OK;
 }
-
 
 /**
    \details This function is called after the pull but before the
