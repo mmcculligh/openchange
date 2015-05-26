@@ -111,7 +111,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		}
 	} else if (delegated) {
 		/* Constrained delegation requires the S4U2Self and S4U2Proxy extensions in Kerberos */
-		DEBUG(5, ("dcerpc_mapiproxy: RPC proxy: Using machine account with constrained delegation\n"));
+		OC_DEBUG(5, "dcerpc_mapiproxy: RPC proxy: Using machine account with constrained delegation");
 		credentials = cli_credentials_init(private);
 		if (!credentials) {
 			return NT_STATUS_NO_MEMORY;
@@ -122,7 +122,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			return status;
 		}
 
-		DEBUG(5, ("Impersonating %s\n", dce_call->conn->auth_state.session_info->info->account_name));
+		OC_DEBUG(5, "Impersonating %s", dce_call->conn->auth_state.session_info->info->account_name);
 
 		/* Determine what interface this is, the service principal names are different for each service */
 		if (table->name && !strcmp(table->name, NDR_EXCHANGE_DS_RFR_NAME)) {
@@ -136,7 +136,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			/* Parse binding string to determine the hostname of the target */
 			status = dcerpc_parse_binding(dce_call->context, binding, &b);
 			if (!NT_STATUS_IS_OK(status)) {
-				DEBUG(0, ("Failed to parse dcerpc binding '%s'\n", binding));
+				OC_DEBUG(0, "Failed to parse dcerpc binding '%s'", binding);
 				return status;
 			}
 
@@ -158,14 +158,14 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			/* The NSP interface isn't likely found on the main target, it could be on a different server like the domain controller */
 			binding = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "nsp_binding");
 			if (!binding) {
-				DEBUG(0, ("You must specify a DCE/RPC binding string for the exchange_nsp interface using nsp_binding\n"));
+				OC_DEBUG(0, "You must specify a DCE/RPC binding string for the exchange_nsp interface using nsp_binding");
 				return NT_STATUS_INVALID_PARAMETER;
 			}
 
 			/* Parse binding string to determine the hostname of the target */
 			status = dcerpc_parse_binding(dce_call->context, binding, &b);
 			if (!NT_STATUS_IS_OK(status)) {
-				DEBUG(0, ("Failed to parse dcerpc binding '%s'\n", binding));
+				OC_DEBUG(0, "Failed to parse dcerpc binding '%s'", binding);
 				return status;
 			}
 
@@ -187,7 +187,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			/* Parse binding string to determine the hostname of the target */
 			status = dcerpc_parse_binding(dce_call->context, binding, &b);
 			if (!NT_STATUS_IS_OK(status)) {
-				DEBUG(0, ("Failed to parse dcerpc binding '%s'\n", binding));
+				OC_DEBUG(0, "Failed to parse dcerpc binding '%s'", binding);
 				return status;
 			}
 
@@ -199,7 +199,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			talloc_free(properHostname);
 		}
 		else {
-			DEBUG(0, ("Unknown interface not supported for constrained delegation.\n"));
+			OC_DEBUG(0, "Unknown interface not supported for constrained delegation.");
 			return NT_STATUS_INVALID_PARAMETER;
 		}
 	} else if (dcesrv_call_credentials(dce_call)) {
@@ -325,8 +325,8 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	char					*server_id_printable = NULL;
 	
 	server_id_printable = server_id_str(NULL, &(dce_call->conn->server_id));
-	DEBUG(5, ("mapiproxy::mapiproxy_op_bind: [session = 0x%x] [session server id = %s] [interface = %s]\n", 
-		  dce_call->context->context_id, server_id_printable, iface->name)); 
+	OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: [session = 0x%x] [session server id = %s] [interface = %s]",
+		  dce_call->context->context_id, server_id_printable, iface->name);
 	talloc_free(server_id_printable);
 
 	OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: [session = 0x%x] [session server id = 0x%"PRIx64" 0x%x 0x%x]", dce_call->context->context_id,
