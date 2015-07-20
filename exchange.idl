@@ -4705,3 +4705,19 @@ System Attendant Private Interface
 {
 	void unknown_dummy();
 }
+
+/* HACK */
+[
+  uuid("5261574a-4572-206e-b268-6b199213b4e4"),
+  pointer_default(unique),
+  endpoint("ncacn_ip_tcp:"),
+  version(0.01),
+  helpstring("Exchange Asynchronous EMSMDB")
+] interface exchange_asyncemsmdb
+{
+	[public] NTSTATUS EcDoAsyncWaitEx_Temp(
+		[in] policy_handle	*async_handle,
+		[in] uint32		ulFlagsIn,
+		[out] uint32		*pulFlagsOut
+		);
+}

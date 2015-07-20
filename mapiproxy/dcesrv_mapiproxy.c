@@ -354,7 +354,30 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	dce_call->state_flags |= DCESRV_CALL_STATE_FLAG_MULTIPLEXED;
 
 	if (server_mode == false) {
-	  return mapiproxy_op_bind_proxy(dce_call, iface, if_version);
+		if (dce_call->pkt.ptype == DCERPC_PKT_ALTER) {
+			// Find the existing context with the server (pipe connection to the server)
+			struct dcesrv_connection_context *pContext = dce_call->conn->contexts;
+			while (pContext) {
+				struct dcesrv_mapiproxy_private *context_private = (struct dcesrv_mapiproxy_private *)pContext->private_data;
+				if (context_private != NULL) {
+					if (context_private->c_pipe != NULL) {
+						// Found it, create secondary context for this interface
+						NTSTATUS status = dcerpc_secondary_context(context_private->c_pipe,&private->c_pipe,dce_call->context->iface->private_data); //&ndr_table_exchange_asyncemsmdb);
+						if (NT_STATUS_IS_OK(status)) {						
+							private->connected = true;
+						}
+						
+						return status;
+					}
+					else {
+						pContext = pContext->next;
+					}
+				}
+			}
+		}
+		else {
+			return mapiproxy_op_bind_proxy(dce_call, iface, if_version);
+		}
 	}
 
 	return NT_STATUS_OK;
@@ -632,7 +655,14 @@ static NTSTATUS mapiproxy_op_dispatch(struct dcesrv_call_state *dce_call, TALLOC
 		
 		private->c_pipe->last_fault_code = 0;
 		if (mapiproxy.norelay == false) {
-			status = dcerpc_binding_handle_call(private->c_pipe->binding_handle, NULL, table, opnum, mem_ctx, r);
+			
+			if (table->name && !strcmp(table->name, NDR_EXCHANGE_ASYNCEMSMDB_NAME)) {
+				/* HACK  Don't proxy to the server yet but let the caller think an async response will come later */
+				dce_call->state_flags |= DCESRV_CALL_STATE_FLAG_ASYNC;
+			}
+			else {
+				status = dcerpc_binding_handle_call(private->c_pipe->binding_handle, NULL, table, opnum, mem_ctx, r);
+			}
 		}
 		
 		dce_call->fault_code = private->c_pipe->last_fault_code;
@@ -861,6 +891,9 @@ NTSTATUS samba_init_module(void)
 
 	status = dcerpc_server_exchange_ds_rfr_init();
 	NT_STATUS_NOT_OK_RETURN(status);
+	
+	status = dcerpc_server_exchange_asyncemsmdb_init();
+	NT_STATUS_NOT_OK_RETURN(status);
 
 	/* Step2. Register Exchange ndr tables */
 	status = ndr_table_register(&ndr_table_exchange_emsmdb);
@@ -872,6 +905,9 @@ NTSTATUS samba_init_module(void)
 	status = ndr_table_register(&ndr_table_exchange_ds_rfr);
 	NT_STATUS_NOT_OK_RETURN(status);
 
+	status = ndr_table_register(&ndr_table_exchange_asyncemsmdb);
+	NT_STATUS_NOT_OK_RETURN(status);
+	
 	/* Step3. Finally register mapiproxy endpoint */
 	status = dcerpc_server_mapiproxy_init();
 	NT_STATUS_NOT_OK_RETURN(status);

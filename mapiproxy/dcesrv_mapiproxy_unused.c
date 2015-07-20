@@ -808,3 +808,12 @@ void dcesrv_unknown_dummy(struct dcesrv_call_state *dce_call, TALLOC_CTX *mem_ct
 {
 	DCESRV_FAULT_VOID(DCERPC_FAULT_OP_RNG_ERROR);
 }
+
+/* HACK */
+NTSTATUS dcesrv_EcDoAsyncWaitEx_Temp(struct dcesrv_call_state *dce_call, TALLOC_CTX *mem_ctx, struct EcDoAsyncWaitEx_Temp *r)
+{
+	DCESRV_FAULT(DCERPC_FAULT_OP_RNG_ERROR);
+}
+
+
+

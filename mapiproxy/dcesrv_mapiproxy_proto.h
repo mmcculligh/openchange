@@ -65,6 +65,7 @@ NTSTATUS dcerpc_server_exchange_store_information_init(void);
 NTSTATUS dcerpc_server_exchange_nsp_init(void);
 NTSTATUS dcerpc_server_exchange_emsmdb_init(void);
 NTSTATUS dcerpc_server_exchange_unknown_init(void);
+NTSTATUS dcerpc_server_exchange_asyncemsmdb_init(void);
 
 /* definitions from samba4: librpc/ndr/ndr_table.c */
 NTSTATUS				ndr_table_init(void);
@@ -151,6 +152,8 @@ void dcesrv_EcUnknown0xC(struct dcesrv_call_state *, TALLOC_CTX *, struct EcUnkn
 void dcesrv_EcUnknown0xD(struct dcesrv_call_state *, TALLOC_CTX *, struct EcUnknown0xD *);
 enum MAPISTATUS dcesrv_EcDoAsyncConnectEx(struct dcesrv_call_state *, TALLOC_CTX *, struct EcDoAsyncConnectEx *);
 void dcesrv_unknown_dummy(struct dcesrv_call_state *, TALLOC_CTX *,struct unknown_dummy *);
+
+NTSTATUS dcesrv_EcDoAsyncWaitEx_Temp(struct dcesrv_call_state *, TALLOC_CTX *, struct EcDoAsyncWaitEx_Temp *);
 
 __END_DECLS
 
