@@ -1765,6 +1765,12 @@ _PUBLIC_ enum ndr_err_code ndr_push_EcDoRpcExt2(struct ndr_push *ndr, int flags,
 		if (r->in.pulFlags == NULL) {
 			return ndr_push_error(ndr, NDR_ERR_INVALID_POINTER, "NULL [ref] pointer");
 		}
+
+		if (*r->in.pulFlags & pulFlags_Chain) {
+			// HACK, we don't support chaining, kill it
+			*r->in.pulFlags &= ~(pulFlags_Chain);
+		}
+
 		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, *r->in.pulFlags));
 		{
 			/* Encode contents to temporary buffer to determine size */
