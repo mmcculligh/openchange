@@ -215,8 +215,8 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		return NT_STATUS_INVALID_PARAMETER;
 	}
 
-	if (((dce_call->pkt.ptype == DCERPC_PKT_BIND) && dce_call->pkt.u.bind.assoc_group_id) ||
-	    ((dce_call->pkt.ptype == DCERPC_PKT_ALTER) && dce_call->pkt.u.alter.assoc_group_id)) {
+	/* Always use the local binding parsing code path since we need to control the flags */
+	if (true) {
 		struct dcerpc_binding		*b;
 		struct composite_context	*pipe_conn_req;
 
@@ -226,6 +226,9 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			oc_log(OC_LOG_ERROR, "dcerpc_mapiproxy: Failed to parse dcerpc binding '%s'", binding);
 			return status;
 		}
+
+		/* Enable multiplex on the RPC pipe */
+		b->flags|= DCERPC_CONCURRENT_MULTIPLEX;
 
 		OC_DEBUG(3, "Using binding %s", dcerpc_binding_string(dce_call->context, b));
 
@@ -251,8 +254,8 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
 		}
+
 		dce_call->context->assoc_group->id = private->c_pipe->assoc_group_id;
-		
 	} else {
 		status = dcerpc_pipe_connect(dce_call->context,
 					     &(private->c_pipe), binding, table,
@@ -558,6 +561,80 @@ static NTSTATUS mapiproxy_op_ndr_push(struct dcesrv_call_state *dce_call, TALLOC
 	return NT_STATUS_OK;
 }
 
+struct dcerpc_binding_handle_async_call_state {
+	struct dcesrv_call_state *dce_call;
+};
+
+static void dcerpc_binding_handle_async_call_done(struct tevent_req *subreq)
+{
+	NTSTATUS status = NT_STATUS_NO_MEMORY;
+
+	struct tevent_req *req = tevent_req_callback_data(subreq, struct tevent_req);
+	struct dcerpc_binding_handle_async_call_state *state = tevent_req_data(req, struct dcerpc_binding_handle_async_call_state);
+
+	status = dcesrv_reply(state->dce_call);
+	if (!NT_STATUS_IS_OK(status)) {
+		OC_DEBUG(0, "dcerpc_binding_handle_async_call_done: dcesrv_reply() failed - %s", nt_errstr(status));
+	}
+}
+
+struct dcerpc_binding_handle {
+	void *private_data;
+	const struct dcerpc_binding_handle_ops *ops;
+	const char *location;
+	const struct GUID *object;
+	const struct ndr_interface_table *table;
+	struct tevent_context *sync_ev;
+};
+
+NTSTATUS dcerpc_binding_handle_async_call(struct dcesrv_call_state *dce_call,
+										  struct dcerpc_binding_handle *h,
+				    				      const struct GUID *object,
+										  const struct ndr_interface_table *table,
+										  uint32_t opnum,
+										  TALLOC_CTX *r_mem,
+										  void *r_ptr)
+{
+	NTSTATUS status = NT_STATUS_NO_MEMORY;
+
+	struct tevent_context *ev;
+	struct tevent_req *req;
+	struct tevent_req *subreq;
+	struct dcerpc_binding_handle_async_call_state *state;
+
+	if (h->sync_ev) {
+		ev = h->sync_ev;
+	} else {
+		ev = samba_tevent_context_init(r_mem);
+	}
+	if (ev == NULL) {
+		goto fail;
+	}
+
+	req = tevent_req_create(r_mem, &state, struct dcerpc_binding_handle_async_call_state);
+	if (req == NULL) {
+		goto fail;
+	}
+
+	state->dce_call = dce_call;
+
+	// Async calls can take up to 5 minutes, give 10 for a timeout - 600 seconds
+	dcerpc_binding_handle_set_timeout(h, 600);
+	subreq = dcerpc_binding_handle_call_send(r_mem, ev, h, object, table, opnum, r_mem, r_ptr);
+	if (subreq == NULL) {
+		goto fail;
+	}
+
+	tevent_req_set_callback(subreq, dcerpc_binding_handle_async_call_done, req);
+
+	/* Signal that the async response will come later */
+	dce_call->state_flags |= DCESRV_CALL_STATE_FLAG_ASYNC;
+	status = NT_STATUS_OK;
+
+fail:
+	return status;
+}
+
 /**
    \details This function is called after the pull but before the
    push. Moreover it is called before the request is forward to the
@@ -657,8 +734,8 @@ static NTSTATUS mapiproxy_op_dispatch(struct dcesrv_call_state *dce_call, TALLOC
 		if (mapiproxy.norelay == false) {
 			
 			if (table->name && !strcmp(table->name, NDR_EXCHANGE_ASYNCEMSMDB_NAME)) {
-				/* HACK  Don't proxy to the server yet but let the caller think an async response will come later */
-				dce_call->state_flags |= DCESRV_CALL_STATE_FLAG_ASYNC;
+				/* Proxy to the server in an async fashion */
+				status = dcerpc_binding_handle_async_call(dce_call, private->c_pipe->binding_handle, NULL, table, opnum, mem_ctx, r);
 			}
 			else {
 				status = dcerpc_binding_handle_call(private->c_pipe->binding_handle, NULL, table, opnum, mem_ctx, r);
@@ -919,6 +996,8 @@ NTSTATUS samba_init_module(void)
 		return NT_STATUS_UNSUCCESSFUL;
 	}
 #endif
+
+	OC_DEBUG(0, "MAPIProxy Server initialized with aysnc support");
 
 	return NT_STATUS_OK;
 }
