@@ -72,7 +72,7 @@ bool mapiproxy_NspiGetProps(struct dcesrv_call_state *dce_call, struct NspiGetPr
 	uint32_t		propID = -1;
 	struct SPropTagArray	*SPropTagArray = NULL;
 	struct PropertyRow_r	*Row;
-	struct StringArray_r	*slpstr;
+
 	struct PropertyValue_r	*lpProp;
 
 	/* Sanity checks */
@@ -87,6 +87,10 @@ bool mapiproxy_NspiGetProps(struct dcesrv_call_state *dce_call, struct NspiGetPr
 			propID = i;
 			break;
 		}
+		if (SPropTagArray->aulPropTag[i] == PR_EMS_AB_NETWORK_ADDRESS_UNICODE) {
+			propID = i;
+			break;
+		}
 	}
 	if (propID == -1) return false;
 
@@ -95,18 +99,33 @@ bool mapiproxy_NspiGetProps(struct dcesrv_call_state *dce_call, struct NspiGetPr
 	lpProp = &Row->lpProps[propID];
 
 	if (!lpProp) return false;
-	if (lpProp->ulPropTag != PR_EMS_AB_NETWORK_ADDRESS) return false;
 
-	slpstr = &(lpProp->value.MVszA);
+	if (lpProp->ulPropTag == PR_EMS_AB_NETWORK_ADDRESS) {
+		struct StringArray_r	*slpstr = &(lpProp->value.MVszA);
 
-	/* Step 3. Modify Exchange binding strings and only return ncacn_ip_tcp */
-	slpstr->cValues = 1;
-	slpstr->lppszA[0] = talloc_asprintf(dce_call, "ncacn_ip_tcp:%s.%s", 
-					    lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), 
-					    lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
-	slpstr->lppszA[0] = strlower_talloc(dce_call, slpstr->lppszA[0]);
+		/* Step 3. Modify Exchange binding strings and only return ncacn_ip_tcp */
+		slpstr->cValues = 1;
+		slpstr->lppszA[0] = talloc_asprintf(dce_call, "ncacn_ip_tcp:%s.%s",
+							lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx),
+							lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+		slpstr->lppszA[0] = strlower_talloc(dce_call, slpstr->lppszA[0]);
 
-	return true;
+		return true;
+	}
+	else if (lpProp->ulPropTag == PR_EMS_AB_NETWORK_ADDRESS_UNICODE) {
+		struct StringArrayW_r	*slpstr = &(lpProp->value.MVszW);
+
+		/* Step 3. Modify Exchange binding strings and only return ncacn_ip_tcp */
+		slpstr->cValues = 1;
+		slpstr->lppszW[0] = talloc_asprintf(dce_call, "ncacn_ip_tcp:%s.%s",
+							lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx),
+							lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+		slpstr->lppszW[0] = strlower_talloc(dce_call, slpstr->lppszW[0]);
+
+		return true;
+	}
+
+	return false;
 }
 
 
