@@ -277,7 +277,7 @@ _PUBLIC_ enum MAPISTATUS nspi_QueryRows(struct nspi_context *nspi_ctx,
 		r.in.dwETableCount = MIds->cValues;
 		r.in.lpETable = (uint32_t *) MIds->aulPropTag;
 		/* We set CurrentRec to the first entry */
-		r.in.pStat->CurrentRec = MIds->aulPropTag[0];
+		//r.in.pStat->CurrentRec = MIds->aulPropTag[0];
 	} else {
 		r.in.dwETableCount = 0;
 		r.in.lpETable = NULL;
@@ -300,6 +300,8 @@ _PUBLIC_ enum MAPISTATUS nspi_QueryRows(struct nspi_context *nspi_ctx,
 	nspi_ctx->pStat->Delta = r.out.pStat->Delta;
 	nspi_ctx->pStat->NumPos = r.out.pStat->NumPos;
 	nspi_ctx->pStat->TotalRecs = r.out.pStat->TotalRecs;
+
+	*ppRows = *r.out.ppRows;
 
 	return MAPI_E_SUCCESS;
 
@@ -543,7 +545,7 @@ _PUBLIC_ enum MAPISTATUS nspi_ResortRestriction(struct nspi_context *nspi_ctx,
 
    \return MAPI_E_SUCCESS on success, otherwise MAPI error
  */
-_PUBLIC_ enum MAPISTATUS nspi_DNToMId(struct nspi_context *nspi_ctx, 
+_PUBLIC_ enum MAPISTATUS nspi_DNToMId(struct nspi_context *nspi_ctx,
 				      TALLOC_CTX *mem_ctx,
 				      struct StringsArray_r *pNames,
 				      struct PropertyTagArray_r **ppMIds)
@@ -569,6 +571,8 @@ _PUBLIC_ enum MAPISTATUS nspi_DNToMId(struct nspi_context *nspi_ctx,
 	retval = r.out.result;
 	OPENCHANGE_RETVAL_IF(!NT_STATUS_IS_OK(status), retval, NULL);
 	OPENCHANGE_RETVAL_IF(retval, retval, NULL)
+
+	*ppMIds = *r.out.ppMIds;
 
 	return MAPI_E_SUCCESS;
 }
@@ -820,6 +824,9 @@ _PUBLIC_ enum MAPISTATUS nspi_GetSpecialTable(struct nspi_context *nspi_ctx,
 
 	status = dcerpc_NspiGetSpecialTable_r(nspi_ctx->rpc_connection->binding_handle, mem_ctx, &r);
 	retval = r.out.result;
+
+	*ppRows = *r.out.ppRows;
+
 	OPENCHANGE_RETVAL_IF(!NT_STATUS_IS_OK(status), retval, NULL);
 	OPENCHANGE_RETVAL_IF(retval, retval, NULL);
 
