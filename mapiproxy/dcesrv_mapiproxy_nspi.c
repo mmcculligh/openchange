@@ -82,14 +82,16 @@ bool mapiproxy_NspiGetProps(struct dcesrv_call_state *dce_call, struct NspiGetPr
 	/* Step 1. Find PR_EMS_AB_NETWORK_ADDRESS index */
 	propID = -1;
 	SPropTagArray = r->in.pPropTags;
-	for (i = 0; i < SPropTagArray->cValues; i++) {
-		if (SPropTagArray->aulPropTag[i] == PR_EMS_AB_NETWORK_ADDRESS) {
-			propID = i;
-			break;
-		}
-		if (SPropTagArray->aulPropTag[i] == PR_EMS_AB_NETWORK_ADDRESS_UNICODE) {
-			propID = i;
-			break;
+	if (SPropTagArray) {
+		for (i = 0; i < SPropTagArray->cValues; i++) {
+			if (SPropTagArray->aulPropTag[i] == PR_EMS_AB_NETWORK_ADDRESS) {
+				propID = i;
+				break;
+			}
+			if (SPropTagArray->aulPropTag[i] == PR_EMS_AB_NETWORK_ADDRESS_UNICODE) {
+				propID = i;
+				break;
+			}
 		}
 	}
 	if (propID == -1) return false;
