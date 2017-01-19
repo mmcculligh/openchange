@@ -577,10 +577,12 @@ void ndr_print_mapi_request(struct ndr_print *ndr, const char *name, const struc
 	rlength = r->mapi_len - r->length;
 
 	ndr_print_uint32(ndr, "mapi_len", r->mapi_len);
+	ndr->print(ndr, "%-25s: length=%u", name, r->length);
+
 	if (r->length && r->length > sizeof(uint16_t)) {
 		uint32_t cntr_mapi_req_0;
 
-		ndr_print_uint16(ndr, "length", r->length);
+		ndr->print(ndr, "%s: ARRAY(%d)", name, r->length - 2);
 		ndr->depth++;
 		for (cntr_mapi_req_0=0; r->mapi_req[cntr_mapi_req_0].opnum; cntr_mapi_req_0++) {
 			char	*idx_0 = NULL;
@@ -595,11 +597,12 @@ void ndr_print_mapi_request(struct ndr_print *ndr, const char *name, const struc
 		ndr->depth--;
 	}
 
+	ndr->print(ndr, "%-25s: (handles) number=%u", name, rlength / 4);
+
 	if (rlength) {
 		uint32_t i;
 
 		ndr->depth++;
-		ndr->print(ndr, "%-25s: (handles) number=%u", name, rlength / 4);
 		ndr->depth++;
 		for (i = 0; i < (rlength / 4); i++) {
 			ndr_print_uint32(ndr, "handle", r->handles[i]);
@@ -614,7 +617,9 @@ void ndr_print_mapi_response(struct ndr_print *ndr, const char *name, const stru
 
 	rlength = r->mapi_len - r->length;
 
+	ndr_print_uint32(ndr, "mapi_len", r->mapi_len);
 	ndr->print(ndr, "%-25s: length=%u", name, r->length);
+
 	if (r->length && r->length > sizeof(uint16_t)) {
 		uint32_t cntr_mapi_repl_0;
 
@@ -634,7 +639,7 @@ void ndr_print_mapi_response(struct ndr_print *ndr, const char *name, const stru
 		ndr->depth++;
 
 		for (i = 0; i < (rlength / 4); i++) {
-			ndr_print_uint32(ndr, "handle id", r->handles[i]);
+			ndr_print_uint32(ndr, "handle", r->handles[i]);
 		}
 		ndr->depth--;
 	}
