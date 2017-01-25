@@ -248,8 +248,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		status = dcerpc_pipe_connect_b_recv(pipe_conn_req, dce_call->context, &(private->c_pipe));
 
 		if (acquired_creds == false) {
-			/* This is disabled because talloc complains it is still be refereenced by something inside the call above
-			talloc_free(credentials);*/
+			talloc_unlink(private,credentials);
 		}
 
 		if (!NT_STATUS_IS_OK(status)) {
