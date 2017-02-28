@@ -47,6 +47,7 @@ struct dcesrv_mapiproxy_private {
 	struct dcerpc_pipe			*c_pipe;
 	char					*exchname;
 	bool					server_mode;
+	bool					oa_mode;
 	bool					connected;
 	bool					ndrdump;
 	struct cli_credentials			*credentials;

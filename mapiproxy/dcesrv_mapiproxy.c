@@ -321,6 +321,7 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 {
 	struct dcesrv_mapiproxy_private		*private;
 	bool					server_mode;
+	bool					oa_mode;
 	bool					ndrdump;
 	char					*server_id_printable = NULL;
 	
@@ -335,6 +336,9 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	/* Retrieve server mode parametric option */
 	server_mode = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "server", true);
 
+	/* Retrieve OA mode parametric option */
+	oa_mode = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "oa_mode", false);
+
 	/* Retrieve ndrdump parametric option */
 	ndrdump = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "ndrdump", false);
 
@@ -347,6 +351,7 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	private->c_pipe = NULL;
 	private->exchname = NULL;
 	private->server_mode = server_mode;
+	private->oa_mode = oa_mode;
 	private->connected = false;
 	private->ndrdump = ndrdump;
 
@@ -438,10 +443,13 @@ static NTSTATUS mapiproxy_op_ndr_pull(struct dcesrv_call_state *dce_call, TALLOC
 
 	dce_call->fault_code = 0;
 
-	if (!dcesrv_call_authenticated(dce_call)) {
-		OC_DEBUG(0, "User is not authenticated, cannot process");
-		dce_call->fault_code = DCERPC_FAULT_OP_RNG_ERROR;
-		return NT_STATUS_NET_WRITE_FAULT;
+	/* There is no authentication in OA mode */
+	if (private->oa_mode == false) {
+		if (!dcesrv_call_authenticated(dce_call)) {
+			OC_DEBUG(0, "User is not authenticated, cannot process");
+			dce_call->fault_code = DCERPC_FAULT_OP_RNG_ERROR;
+			return NT_STATUS_NET_WRITE_FAULT;
+		}
 	}
 
 	/* If remote connection bind/auth has been delayed */

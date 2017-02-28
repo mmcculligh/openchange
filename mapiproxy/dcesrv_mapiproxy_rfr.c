@@ -40,10 +40,15 @@ bool mapiproxy_RfrGetNewDSA(struct dcesrv_call_state *dce_call, struct RfrGetNew
 	/* Sanity checks */
 	if (!r->out.ppszServer) return false;
 
-	*r->out.ppszServer = talloc_asprintf(dce_call, "%s.%s", 
-					     lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), 
-					     lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
-	*r->out.ppszServer = strlower_talloc(dce_call, *r->out.ppszServer);
+	struct dcesrv_mapiproxy_private		*private;
+	private = dce_call->context->private_data;
+
+	if (private->oa_mode == false) {
+		*r->out.ppszServer = talloc_asprintf(dce_call, "%s.%s",
+							 lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx),
+							 lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+		*r->out.ppszServer = strlower_talloc(dce_call, *r->out.ppszServer);
+	}
 
 	return true;
 }

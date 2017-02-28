@@ -52,6 +52,7 @@ _trial_temp
 *.rej
 *.pyc
 samba4
+samba-4*
 samba-*.tar.gz
 test_results.xml
 *.gcda
