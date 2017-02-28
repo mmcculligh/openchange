@@ -254,8 +254,6 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
 		}
-
-		dce_call->context->assoc_group->id = private->c_pipe->assoc_group_id;
 	} else {
 		status = dcerpc_pipe_connect(dce_call->context,
 					     &(private->c_pipe), binding, table,
@@ -269,7 +267,6 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
 		}
-		dce_call->context->assoc_group->id = private->c_pipe->assoc_group_id;
 	}
 
 	private->connected = true;
