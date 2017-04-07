@@ -91,7 +91,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 		cli_credentials_set_anonymous(credentials);
 	} else if (user && pass) {
-		OC_DEBUG(5, "dcerpc_mapiproxy: RPC proxy: Using specified account");
+		OC_DEBUG(5, "dcerpc_mapiproxy: RPC proxy: Using specified account: %s", user);
 		credentials = cli_credentials_init(private);
 		if (!credentials) {
 			return NT_STATUS_NO_MEMORY;
