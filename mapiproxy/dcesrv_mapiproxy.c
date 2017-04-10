@@ -387,7 +387,9 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 			// Find the existing context with the server (pipe connection to the server)
 			struct dcesrv_connection_context *pContext = dce_call->conn->contexts;
 			while (pContext) {
-				if (pContext->assoc_group->id == dce_call->pkt.u.alter.assoc_group_id)
+				// Disable the check for matching assoc_group_id, Outlook 2013 doesn't send it?
+				// TODO: Revisit this later
+				//if (pContext->assoc_group->id == dce_call->pkt.u.alter.assoc_group_id)
 				{
 					struct dcesrv_mapiproxy_private *context_private = (struct dcesrv_mapiproxy_private *)pContext->private_data;
 					if (context_private != NULL) {
