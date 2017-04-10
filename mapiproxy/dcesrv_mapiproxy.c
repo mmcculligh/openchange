@@ -223,7 +223,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		return NT_STATUS_INVALID_PARAMETER;
 	}
 
-	/* Always use the local binding parsing code path since we need to control the flags */
+	/* Always use the local binding parsing code path since we need to control the flags and assoc_group_id */
 	if (true) {
 		struct dcerpc_binding		*b;
 		struct composite_context	*pipe_conn_req;
@@ -242,10 +242,10 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 		switch (dce_call->pkt.ptype) {
 		case DCERPC_PKT_BIND:
-			b->assoc_group_id = dce_call->pkt.u.bind.assoc_group_id;
+			b->assoc_group_id = dce_call->context->assoc_group->proxied_id;
 			break;
 		case DCERPC_PKT_ALTER:
-			b->assoc_group_id = dce_call->pkt.u.alter.assoc_group_id;
+			b->assoc_group_id = dce_call->context->assoc_group->proxied_id;
 			break;
 		default:
 			break;
@@ -262,6 +262,8 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
 		}
+
+		dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
 	} else {
 		status = dcerpc_pipe_connect(dce_call->context,
 					     &(private->c_pipe), binding, table,
@@ -275,6 +277,8 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
 		}
+
+		dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
 	}
 
 	private->connected = true;
@@ -302,7 +306,12 @@ static NTSTATUS mapiproxy_op_bind_proxy(struct dcesrv_call_state *dce_call, cons
 
 	if (dcesrv_call_credentials(dce_call)) {
 		private->credentials = dcesrv_call_credentials(dce_call);
-		OC_DEBUG(5, "dcerpc_mapiproxy: Delegated credentials acquired");
+		if (cli_credentials_is_anonymous(private->credentials))	{
+			OC_DEBUG(5, "dcerpc_mapiproxy: Anonymous credentials being used by client");
+		}
+		else {
+			OC_DEBUG(5, "dcerpc_mapiproxy: Delegated credentials acquired from client for user %s\%s", private->credentials->domain, private->credentials->username);
+		}
 	}
 
 	delegated = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "delegated_auth", false);
@@ -350,14 +359,12 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	/* Retrieve ndrdump parametric option */
 	ndrdump = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "ndrdump", false);
 
-	/* Initialize private structure */
-	private = talloc(dce_call->context, struct dcesrv_mapiproxy_private);
+	/* Initialize private structure to all zeros */
+	private = talloc_zero(dce_call->context, struct dcesrv_mapiproxy_private);
 	if (!private) {
 		return NT_STATUS_NO_MEMORY;
 	}
 	
-	private->c_pipe = NULL;
-	private->exchname = NULL;
 	private->server_mode = server_mode;
 	private->oa_mode = oa_mode;
 	private->connected = false;
@@ -367,26 +374,39 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	dce_call->state_flags |= DCESRV_CALL_STATE_FLAG_MULTIPLEXED;
 
 	if (server_mode == false) {
+		if (dce_call->pkt.ptype == DCERPC_PKT_BIND)
+		{
+			OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: Bind with initial assoc_group_id 0x%x, resulting assoc_group_id 0x%x",dce_call->pkt.u.bind.assoc_group_id, dce_call->context->assoc_group->id);
+		}
+		else if (dce_call->pkt.ptype == DCERPC_PKT_ALTER)
+		{
+			OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: Alter context with assoc_group_id 0x%x",dce_call->pkt.u.alter.assoc_group_id);
+		}
+
 		if (dce_call->pkt.ptype == DCERPC_PKT_ALTER) {
 			// Find the existing context with the server (pipe connection to the server)
 			struct dcesrv_connection_context *pContext = dce_call->conn->contexts;
 			while (pContext) {
-				struct dcesrv_mapiproxy_private *context_private = (struct dcesrv_mapiproxy_private *)pContext->private_data;
-				if (context_private != NULL) {
-					if (context_private->c_pipe != NULL) {
-						// Found it, create secondary context for this interface
-						NTSTATUS status = dcerpc_secondary_context(context_private->c_pipe,&private->c_pipe,dce_call->context->iface->private_data); //&ndr_table_exchange_asyncemsmdb);
-						if (NT_STATUS_IS_OK(status)) {						
-							private->connected = true;
+				if (pContext->assoc_group->id == dce_call->pkt.u.alter.assoc_group_id)
+				{
+					struct dcesrv_mapiproxy_private *context_private = (struct dcesrv_mapiproxy_private *)pContext->private_data;
+					if (context_private != NULL) {
+						if (context_private->c_pipe != NULL) {
+							// Found it, create secondary context for this interface
+							NTSTATUS status = dcerpc_secondary_context(context_private->c_pipe,&private->c_pipe,dce_call->context->iface->private_data);
+							if (NT_STATUS_IS_OK(status)) {
+								private->connected = true;
+							}
+
+							return status;
 						}
-						
-						return status;
-					}
-					else {
-						pContext = pContext->next;
 					}
 				}
+
+				pContext = pContext->next;
 			}
+
+			return NT_STATUS_INVALID_PARAMETER;
 		}
 		else {
 			return mapiproxy_op_bind_proxy(dce_call, iface, if_version);
@@ -451,12 +471,13 @@ static NTSTATUS mapiproxy_op_ndr_pull(struct dcesrv_call_state *dce_call, TALLOC
 
 	dce_call->fault_code = 0;
 
-	/* There is no authentication in OA mode */
-	if (private->oa_mode == false) {
-		if (!dcesrv_call_authenticated(dce_call)) {
-			OC_DEBUG(0, "User is not authenticated, cannot process");
-			dce_call->fault_code = DCERPC_FAULT_OP_RNG_ERROR;
-			return NT_STATUS_NET_WRITE_FAULT;
+	if (private->credentials) {
+		if (cli_credentials_is_anonymous(private->credentials) == false){
+			if (!dcesrv_call_authenticated(dce_call)) {
+				OC_DEBUG(0, "User is not authenticated, cannot process");
+				dce_call->fault_code = DCERPC_FAULT_OP_RNG_ERROR;
+				return NT_STATUS_NET_WRITE_FAULT;
+			}
 		}
 	}
 
