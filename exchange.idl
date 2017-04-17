@@ -1801,9 +1801,10 @@ System Attendant Private Interface
 		[switch_is(rt)] mapi_SRestriction_CTR res;
 	} mapi_SRestriction_comment;
 
-	typedef [flag(NDR_NOALIGN)] struct {
-		uint8 handle_idx;
-		[subcontext(2)] mapi_SRestriction  restrictions;
+	typedef [nopush,nopull,noprint,flag(NDR_NOALIGN)] struct {
+		uint8 flags;
+		uint16	RestrictionDataSize;
+		[subcontext(0),subcontext_size(RestrictionDataSize)] mapi_SRestriction	restrictions;
 	} Restrict_req;
 
 	typedef [flag(NDR_NOALIGN)] struct {

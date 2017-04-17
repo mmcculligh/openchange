@@ -3096,3 +3096,74 @@ _PUBLIC_ enum ndr_err_code ndr_pull_PersistElementArray(struct ndr_pull *ndr, in
 	}
 	return NDR_ERR_SUCCESS;
 }
+
+enum ndr_err_code ndr_push_Restrict_req(struct ndr_push *ndr, int ndr_flags, const struct Restrict_req *r)
+{
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		NDR_PUSH_CHECK_FLAGS(ndr, ndr_flags);
+		if (ndr_flags & NDR_SCALARS) {
+			NDR_CHECK(ndr_push_align(ndr, 8));
+			NDR_CHECK(ndr_push_uint8(ndr, NDR_SCALARS, r->flags));
+			NDR_CHECK(ndr_push_uint16(ndr, NDR_SCALARS, r->RestrictionDataSize));
+			if (r->RestrictionDataSize) {
+				struct ndr_push *_ndr_restrictions;
+				NDR_CHECK(ndr_push_subcontext_start(ndr, &_ndr_restrictions, 0, r->RestrictionDataSize));
+				NDR_CHECK(ndr_push_mapi_SRestriction(_ndr_restrictions, NDR_SCALARS|NDR_BUFFERS, &r->restrictions));
+				NDR_CHECK(ndr_push_subcontext_end(ndr, _ndr_restrictions, 0, r->RestrictionDataSize));
+			}
+			NDR_CHECK(ndr_push_trailer_align(ndr, 8));
+		}
+		if (ndr_flags & NDR_BUFFERS) {
+		}
+		ndr->flags = _flags_save_STRUCT;
+	}
+	return NDR_ERR_SUCCESS;
+}
+
+enum ndr_err_code ndr_pull_Restrict_req(struct ndr_pull *ndr, int ndr_flags, struct Restrict_req *r)
+{
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		NDR_PULL_CHECK_FLAGS(ndr, ndr_flags);
+		if (ndr_flags & NDR_SCALARS) {
+			NDR_CHECK(ndr_pull_align(ndr, 8));
+			NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->flags));
+			NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->RestrictionDataSize));
+			if (r->RestrictionDataSize) {
+				struct ndr_pull *_ndr_RestrictionData;
+				NDR_CHECK(ndr_pull_subcontext_start(ndr, &_ndr_RestrictionData, 0, r->RestrictionDataSize));
+				NDR_CHECK(ndr_pull_mapi_SRestriction(_ndr_RestrictionData, NDR_SCALARS|NDR_BUFFERS, &r->restrictions));
+				NDR_CHECK(ndr_pull_subcontext_end(ndr, _ndr_RestrictionData, 0, r->RestrictionDataSize));
+			}
+			NDR_CHECK(ndr_pull_trailer_align(ndr, 8));
+		}
+		if (ndr_flags & NDR_BUFFERS) {
+		}
+		ndr->flags = _flags_save_STRUCT;
+	}
+	return NDR_ERR_SUCCESS;
+}
+
+void ndr_print_Restrict_req(struct ndr_print *ndr, const char *name, const struct Restrict_req *r)
+{
+	ndr_print_struct(ndr, name, "Restrict_req");
+	if (r == NULL) { ndr_print_null(ndr); return; }
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		ndr->depth++;
+		ndr_print_uint8(ndr, "flags", r->flags);
+		ndr_print_uint16(ndr, "RestrictionDataSize", r->RestrictionDataSize);
+		if (r->RestrictionDataSize) {
+			ndr_print_mapi_SRestriction(ndr, "restrictions", &r->restrictions);
+		} else {
+			ndr_print_uint8(ndr, "restrictions", 0);
+		}
+		ndr->depth--;
+		ndr->flags = _flags_save_STRUCT;
+	}
+}
+
