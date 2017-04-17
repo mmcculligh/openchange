@@ -433,7 +433,8 @@ System Attendant Private Interface
 		RES_SIZE		= 0x7,
 		RES_EXIST		= 0x8,
 		RES_SUBRESTRICTION	= 0x9,
-		RES_COMMENT		= 0xA
+		RES_COMMENT		= 0xA,
+		RES_COUNT		= 0xB
 	} RestrictionType_r;
 
 	typedef [switch_type(uint32)] union {
@@ -1761,6 +1762,11 @@ System Attendant Private Interface
 		[switch_is(RestrictionPresent)] RestrictionVariable Restriction;
 	} mapi_SCommentRestriction;
 
+	typedef [flag(NDR_NOALIGN)] struct {
+		uint32				Count;
+		mapi_SRestriction_wrap		res;
+	} mapi_SCountRestriction;
+
 	typedef [public,nodiscriminant] union {
 		[case(RES_AND)]			mapi_SAndRestriction		resAnd;
 		[case(RES_OR)]			mapi_SOrRestriction		resOr;
@@ -1773,6 +1779,7 @@ System Attendant Private Interface
 		[case(RES_EXIST)]		mapi_SExistRestriction		resExist;
 		[case(RES_SUBRESTRICTION)]	mapi_SSubRestriction		resSub;
 		[case(RES_COMMENT)]		mapi_SCommentRestriction	resComment;
+		[case(RES_COUNT)]		mapi_SCountRestriction		resCount;
 		[default];
 	} mapi_SRestriction_CTR;
 
@@ -2507,8 +2514,9 @@ System Attendant Private Interface
 		STATIC_SEARCH			= 0x00040000
 	} SearchFlags;
 
-	typedef [flag(NDR_NOALIGN)] struct {
-		[subcontext(2)] mapi_SRestriction	res;
+	typedef [nopush,nopull,noprint,flag(NDR_NOALIGN)] struct {
+		uint16					RestrictionDataSize;
+		[subcontext(0),subcontext_size(RestrictionDataSize)] mapi_SRestriction	RestrictionData;
 		uint16					FolderIdCount;
 		hyper					FolderIds[FolderIdCount];
 		SearchFlags				SearchFlags;

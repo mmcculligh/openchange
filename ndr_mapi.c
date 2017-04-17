@@ -2590,6 +2590,99 @@ enum ndr_err_code ndr_pull_Release_repl(struct ndr_pull *ndr, int ndr_flags, str
 	return NDR_ERR_SUCCESS;
 }
 
+enum ndr_err_code ndr_push_SetSearchCriteria_req(struct ndr_push *ndr, int ndr_flags, const struct SetSearchCriteria_req *r)
+{
+	uint32_t cntr_FolderIds_0;
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		NDR_PUSH_CHECK_FLAGS(ndr, ndr_flags);
+		if (ndr_flags & NDR_SCALARS) {
+			NDR_CHECK(ndr_push_align(ndr, 8));
+			NDR_CHECK(ndr_push_uint16(ndr, NDR_SCALARS, r->RestrictionDataSize));
+			if (r->RestrictionDataSize) {
+				struct ndr_push *_ndr_RestrictionData;
+				NDR_CHECK(ndr_push_subcontext_start(ndr, &_ndr_RestrictionData, 0, r->RestrictionDataSize));
+				NDR_CHECK(ndr_push_mapi_SRestriction(_ndr_RestrictionData, NDR_SCALARS|NDR_BUFFERS, &r->RestrictionData));
+				NDR_CHECK(ndr_push_subcontext_end(ndr, _ndr_RestrictionData, 0, r->RestrictionDataSize));
+			}
+			NDR_CHECK(ndr_push_uint16(ndr, NDR_SCALARS, r->FolderIdCount));
+			for (cntr_FolderIds_0 = 0; cntr_FolderIds_0 < r->FolderIdCount; cntr_FolderIds_0++) {
+				NDR_CHECK(ndr_push_hyper(ndr, NDR_SCALARS, r->FolderIds[cntr_FolderIds_0]));
+			}
+			NDR_CHECK(ndr_push_SearchFlags(ndr, NDR_SCALARS, r->SearchFlags));
+			NDR_CHECK(ndr_push_trailer_align(ndr, 8));
+		}
+		if (ndr_flags & NDR_BUFFERS) {
+		}
+		ndr->flags = _flags_save_STRUCT;
+	}
+	return NDR_ERR_SUCCESS;
+}
+
+enum ndr_err_code ndr_pull_SetSearchCriteria_req(struct ndr_pull *ndr, int ndr_flags, struct SetSearchCriteria_req *r)
+{
+	uint32_t size_FolderIds_0 = 0;
+	uint32_t cntr_FolderIds_0;
+	TALLOC_CTX *_mem_save_FolderIds_0;
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		NDR_PULL_CHECK_FLAGS(ndr, ndr_flags);
+		if (ndr_flags & NDR_SCALARS) {
+			NDR_CHECK(ndr_pull_align(ndr, 8));
+			NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->RestrictionDataSize));
+			if (r->RestrictionDataSize) {
+				struct ndr_pull *_ndr_RestrictionData;
+				NDR_CHECK(ndr_pull_subcontext_start(ndr, &_ndr_RestrictionData, 0, r->RestrictionDataSize));
+				NDR_CHECK(ndr_pull_mapi_SRestriction(_ndr_RestrictionData, NDR_SCALARS|NDR_BUFFERS, &r->RestrictionData));
+				NDR_CHECK(ndr_pull_subcontext_end(ndr, _ndr_RestrictionData, 0, r->RestrictionDataSize));
+			}
+			NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->FolderIdCount));
+			size_FolderIds_0 = r->FolderIdCount;
+			NDR_PULL_ALLOC_N(ndr, r->FolderIds, size_FolderIds_0);
+			_mem_save_FolderIds_0 = NDR_PULL_GET_MEM_CTX(ndr);
+			NDR_PULL_SET_MEM_CTX(ndr, r->FolderIds, 0);
+			for (cntr_FolderIds_0 = 0; cntr_FolderIds_0 < size_FolderIds_0; cntr_FolderIds_0++) {
+				NDR_CHECK(ndr_pull_hyper(ndr, NDR_SCALARS, &r->FolderIds[cntr_FolderIds_0]));
+			}
+			NDR_PULL_SET_MEM_CTX(ndr, _mem_save_FolderIds_0, 0);
+			NDR_CHECK(ndr_pull_SearchFlags(ndr, NDR_SCALARS, &r->SearchFlags));
+			NDR_CHECK(ndr_pull_trailer_align(ndr, 8));
+		}
+		if (ndr_flags & NDR_BUFFERS) {
+		}
+		ndr->flags = _flags_save_STRUCT;
+	}
+	return NDR_ERR_SUCCESS;
+}
+
+void ndr_print_SetSearchCriteria_req(struct ndr_print *ndr, const char *name, const struct SetSearchCriteria_req *r)
+{
+	uint32_t cntr_FolderIds_0;
+	ndr_print_struct(ndr, name, "SetSearchCriteria_req");
+	if (r == NULL) { ndr_print_null(ndr); return; }
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		ndr->depth++;
+		if (r->RestrictionDataSize) {
+			ndr_print_mapi_SRestriction(ndr, "RestrictionData", &r->RestrictionData);
+		} else {
+			ndr_print_uint8(ndr, "RestrictionData", 0);
+		}
+		ndr_print_uint16(ndr, "FolderIdCount", r->FolderIdCount);
+		ndr->print(ndr, "%s: ARRAY(%d)", "FolderIds", (int)r->FolderIdCount);
+		ndr->depth++;
+		for (cntr_FolderIds_0=0;cntr_FolderIds_0<r->FolderIdCount;cntr_FolderIds_0++) {
+			ndr_print_hyper(ndr, "FolderIds", r->FolderIds[cntr_FolderIds_0]);
+		}
+		ndr->depth--;
+		ndr_print_SearchFlags(ndr, "SearchFlags", r->SearchFlags);
+		ndr->depth--;
+		ndr->flags = _flags_save_STRUCT;
+	}
+}
 
 enum ndr_err_code ndr_push_GetSearchCriteria_repl(struct ndr_push *ndr, int ndr_flags, const struct GetSearchCriteria_repl *r)
 {
