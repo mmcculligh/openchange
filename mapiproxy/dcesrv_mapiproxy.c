@@ -151,6 +151,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 			/* Set the desired principal (authenticated client) and our own service principal name (SPN) for S4U2Self stage */
 			self_service = talloc_asprintf(dce_call,"exchangeRFR/%s.%s", lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+			OC_DEBUG(5, "Own SPN %s", self_service);
 			cli_credentials_set_impersonate_principal(credentials, dce_call->conn->auth_state.session_info->info->account_name, self_service);
 			talloc_free(self_service);
 
@@ -164,6 +165,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
 			char* properHostname = strupper_talloc(dce_call,b->host);
 			target_service = talloc_asprintf(dce_call,"exchangeRFR/%s", properHostname);
+			OC_DEBUG(5, "Target SPN %s", target_service);
 			cli_credentials_set_target_service(credentials, target_service);
 			talloc_free(target_service);
 			talloc_free(properHostname);
@@ -173,6 +175,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 			/* Set the desired principal (authenticated client) and our own service principal name (SPN) for S4U2Self stage */
 			self_service = talloc_asprintf(dce_call,"exchangeAB/%s.%s", lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+			OC_DEBUG(5, "Own SPN %s", self_service);
 			cli_credentials_set_impersonate_principal(credentials, dce_call->conn->auth_state.session_info->info->account_name, self_service);
 			talloc_free(self_service);
 
@@ -193,6 +196,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
 			char* properHostname = strupper_talloc(dce_call,b->host);
 			target_service = talloc_asprintf(dce_call,"exchangeAB/%s",properHostname);
+			OC_DEBUG(5, "Target SPN %s", target_service);
 			cli_credentials_set_target_service(credentials, target_service);
 			talloc_free(target_service);
 			talloc_free(properHostname);
@@ -202,6 +206,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 			/* Set the desired principal (authenticated client) and our own service principal name (SPN) for S4U2Self stage */
 			self_service = talloc_asprintf(dce_call,"exchangeMDB/%s.%s", lpcfg_netbios_name(dce_call->conn->dce_ctx->lp_ctx), lpcfg_realm(dce_call->conn->dce_ctx->lp_ctx));
+			OC_DEBUG(5, "Own SPN %s", self_service);
 			cli_credentials_set_impersonate_principal(credentials, dce_call->conn->auth_state.session_info->info->account_name, self_service);
 			talloc_free(self_service);
 
@@ -215,6 +220,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
 			char* properHostname = strupper_talloc(dce_call,b->host);
 			target_service = talloc_asprintf(dce_call,"exchangeMDB/%s", properHostname);
+			OC_DEBUG(5, "Target SPN %s", target_service);
 			cli_credentials_set_target_service(credentials, target_service);
 			talloc_free(target_service);
 			talloc_free(properHostname);
@@ -351,6 +357,7 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 {
 	struct dcesrv_mapiproxy_private		*private;
 	bool					server_mode;
+	bool 					oa_mode;
 	bool					ndrdump;
 	char					*server_id_printable = NULL;
 	
@@ -365,6 +372,8 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	/* Retrieve server mode parametric option */
 	server_mode = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "server", true);
 
+	oa_mode = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "oa_mode", false);
+
 	/* Retrieve ndrdump parametric option */
 	ndrdump = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "ndrdump", false);
 
@@ -375,6 +384,7 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	}
 	
 	private->server_mode = server_mode;
+	private->oa_mode = oa_mode;
 	private->connected = false;
 	private->ndrdump = ndrdump;
 
