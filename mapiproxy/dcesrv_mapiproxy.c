@@ -60,6 +60,8 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 	bool					acquired_creds = false;
 	bool					machine_account;
 	bool					delegated;
+	bool 					anonymous;
+	bool					no_kerberos;
 
 	OC_DEBUG(5, "mapiproxy::mapiproxy_op_connect");
 
@@ -75,6 +77,8 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 	/* Retrieve parametric options */
 	machine_account = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "use_machine_account", false);
 	delegated = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "delegated_auth", false);
+	anonymous = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "anonymous_auth", false);
+	no_kerberos = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "no_kerberos", false);
 	user = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "username");
 	pass = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "password");
 	domain = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "domain");
@@ -82,7 +86,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 	/* Retrieve private mapiproxy data */
 	private = dce_call->context->private_data;
 
-	if (private->oa_mode) {
+	if (anonymous) {
 		OC_DEBUG(5, "dcerpc_mapiproxy: RPC proxy: Using anonymous credentials");
 		credentials = cli_credentials_init(private);
 		if (!credentials) {
@@ -103,6 +107,10 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			cli_credentials_set_domain(credentials, domain, CRED_SPECIFIED);
 		}
 		cli_credentials_set_password(credentials, pass, CRED_SPECIFIED);
+
+		if (no_kerberos) {
+			cli_credentials_set_kerberos_state(credentials,CRED_DONT_USE_KERBEROS);
+		}
 	} else if (machine_account) {
 		OC_DEBUG(5, "dcerpc_mapiproxy: RPC proxy: Using machine account");
 		credentials = cli_credentials_init(private);
@@ -114,6 +122,11 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			cli_credentials_set_domain(credentials, domain, CRED_SPECIFIED);
 		}
 		status = cli_credentials_set_machine_account(credentials, dce_call->conn->dce_ctx->lp_ctx);
+
+		if (no_kerberos) {
+			cli_credentials_set_kerberos_state(credentials,CRED_DONT_USE_KERBEROS);
+		}
+
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
 		}
@@ -293,7 +306,7 @@ static NTSTATUS mapiproxy_op_bind_proxy(struct dcesrv_call_state *dce_call, cons
 	NTSTATUS				status = NT_STATUS_OK;
 	const struct ndr_interface_table	*table;
 	struct dcesrv_mapiproxy_private		*private;
-	bool					delegated;
+	bool					delayed;
 
 	/* Retrieve private mapiproxy data */
 	private = dce_call->context->private_data;
@@ -314,8 +327,8 @@ static NTSTATUS mapiproxy_op_bind_proxy(struct dcesrv_call_state *dce_call, cons
 		}
 	}
 
-	delegated = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "delegated_auth", false);
-	if (delegated == false) {
+	delayed = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "delay_connection", false);
+	if (delayed == false) {
 		status = mapiproxy_op_connect(dce_call, table, NULL);
 	}
 
@@ -338,7 +351,6 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 {
 	struct dcesrv_mapiproxy_private		*private;
 	bool					server_mode;
-	bool					oa_mode;
 	bool					ndrdump;
 	char					*server_id_printable = NULL;
 	
@@ -353,9 +365,6 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	/* Retrieve server mode parametric option */
 	server_mode = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "server", true);
 
-	/* Retrieve OA mode parametric option */
-	oa_mode = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "oa_mode", false);
-
 	/* Retrieve ndrdump parametric option */
 	ndrdump = lpcfg_parm_bool(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "ndrdump", false);
 
@@ -366,7 +375,6 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	}
 	
 	private->server_mode = server_mode;
-	private->oa_mode = oa_mode;
 	private->connected = false;
 	private->ndrdump = ndrdump;
 
