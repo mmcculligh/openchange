@@ -648,7 +648,7 @@ _PUBLIC_ enum MAPISTATUS SetSearchCriteria(mapi_object_t *obj_container,
 	size = 0;
 
 	/* Fill the SetSearchCriteria operation */
-	request.res = *res;
+	request.RestrictionData = *res;
 	size += get_mapi_SRestriction_size(res);
 	if (lpContainerList != NULL) {
 		request.FolderIdCount = lpContainerList->count;

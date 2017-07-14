@@ -1184,8 +1184,8 @@ _PUBLIC_ enum MAPISTATUS Restrict(mapi_object_t *obj_table,
 
 	/* Fill the Restrict operation */
 	size = 0;
-	request.handle_idx = 0;
-	size += sizeof (request.handle_idx);
+	request.flags = 0;
+	size += sizeof (request.flags);
 	request.restrictions = *res;
 	size += get_mapi_SRestriction_size(res);
 
