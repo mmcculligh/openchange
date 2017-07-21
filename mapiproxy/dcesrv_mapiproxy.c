@@ -63,8 +63,6 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 	bool 					anonymous;
 	bool					no_kerberos;
 
-	const char				*oa_binding = NULL;
-
 	OC_DEBUG(5, "mapiproxy::mapiproxy_op_connect");
 
 	/* Retrieve the binding string from parametric options if undefined */
@@ -87,14 +85,6 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 	/* Retrieve private mapiproxy data */
 	private = dce_call->context->private_data;
-
-	if (private->oa_mode) {
-		oa_binding = lpcfg_parm_string(dce_call->conn->dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "oa_binding");
-		if (!binding) {
-			OC_DEBUG(0, "You must specify a DCE/RPC OutlookAnywhere binding string");
-			return NT_STATUS_INVALID_PARAMETER;
-		}
-	}
 
 	if (anonymous) {
 		OC_DEBUG(5, "dcerpc_mapiproxy: RPC proxy: Using anonymous credentials");
@@ -255,27 +245,13 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 	/* Always use the local binding parsing code path since we need to control the flags and assoc_group_id */
 	if (true) {
 		struct dcerpc_binding		*b;
-		struct dcerpc_binding 		*temp;
 		struct composite_context	*pipe_conn_req;
 
 		/* parse binding string to the structure */
-		if (oa_binding) {
-			status = dcerpc_parse_binding(dce_call->context, oa_binding, &b);
-			if (!NT_STATUS_IS_OK(status)) {
-				oc_log(OC_LOG_ERROR, "dcerpc_mapiproxy: Failed to parse dcerpc binding '%s'", oa_binding);
-				return status;
-			}
-
-			status = dcerpc_parse_binding(dce_call->context, binding, &temp);
-
-			b->target_hostname = temp->target_hostname;
-		}
-		else {
-			status = dcerpc_parse_binding(dce_call->context, binding, &b);
-			if (!NT_STATUS_IS_OK(status)) {
-				oc_log(OC_LOG_ERROR, "dcerpc_mapiproxy: Failed to parse dcerpc binding '%s'", binding);
-				return status;
-			}
+		status = dcerpc_parse_binding(dce_call->context, binding, &b);
+		if (!NT_STATUS_IS_OK(status)) {
+			oc_log(OC_LOG_ERROR, "dcerpc_mapiproxy: Failed to parse dcerpc binding '%s'", binding);
+			return status;
 		}
 
 		/* Enable multiplex on the RPC pipe */
