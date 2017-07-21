@@ -1828,7 +1828,7 @@ _PUBLIC_ enum ndr_err_code ndr_push_EcDoRpcExt2(struct ndr_push *ndr, int flags,
 			uint32_t 	size_rgbOut_0 = 0;			
 
 			/* Does pResponse exist (it is optional) */
-			if (r->out.pResponse == NULL) {
+			if ((r->out.pcbResponse == NULL) || (*r->out.pcbResponse == 0)) {
 				/* No, push empty conformant-varying array */
 				NDR_CHECK(ndr_push_uint3264(ndr, NDR_SCALARS, 0));
 				NDR_CHECK(ndr_push_uint3264(ndr, NDR_SCALARS, 0));
