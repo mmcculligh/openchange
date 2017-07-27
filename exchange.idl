@@ -3879,6 +3879,7 @@ System Attendant Private Interface
 	} BufferTooSmall_req;
 
 	typedef [nopush,nopull,flag(NDR_NOALIGN)] struct {
+		uint16		SizeNeeded;
 	} BufferTooSmall_repl;
 
 	/*************************/

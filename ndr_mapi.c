@@ -806,7 +806,7 @@ _PUBLIC_ enum ndr_err_code ndr_push_EcDoRpc_MAPI_REPL(struct ndr_push *ndr, int 
 		if (ndr_flags & NDR_SCALARS) {
 			NDR_CHECK(ndr_push_align(ndr, 8));
 			NDR_CHECK(ndr_push_uint8(ndr, NDR_SCALARS, r->opnum));
-			if ((r->opnum == op_MAPI_Notify) || (r->opnum == op_MAPI_Pending)) {
+			if ((r->opnum == op_MAPI_Notify) || (r->opnum == op_MAPI_Pending) || (r->opnum == op_MAPI_BufferTooSmall)) {
 				NDR_CHECK(ndr_push_set_switch_value(ndr, &r->u, r->opnum));
 				NDR_CHECK(ndr_push_EcDoRpc_MAPI_REPL_UNION(ndr, NDR_SCALARS, &r->u));				
 			} else {
@@ -859,7 +859,7 @@ enum ndr_err_code ndr_pull_EcDoRpc_MAPI_REPL(struct ndr_pull *ndr, int ndr_flags
 		if (ndr_flags & NDR_SCALARS) {
 			NDR_CHECK(ndr_pull_align(ndr, 8));
 			NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->opnum));
-			if ((r->opnum == op_MAPI_Notify) || (r->opnum == op_MAPI_Pending)) {
+			if ((r->opnum == op_MAPI_Notify) || (r->opnum == op_MAPI_Pending) || (r->opnum == op_MAPI_BufferTooSmall)) {
 				NDR_CHECK(ndr_pull_set_switch_value(ndr, &r->u, r->opnum));
 				NDR_CHECK(ndr_pull_EcDoRpc_MAPI_REPL_UNION(ndr, NDR_SCALARS, &r->u));
 			} else {
@@ -931,7 +931,7 @@ void ndr_print_EcDoRpc_MAPI_REPL(struct ndr_print *ndr, const char *name, const 
 		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
 		ndr->depth++;
 		ndr_print_uint8(ndr, "opnum", r->opnum);
-		if ((r->opnum != op_MAPI_Notify) && (r->opnum != op_MAPI_Pending)) {
+		if ((r->opnum != op_MAPI_Notify) && (r->opnum != op_MAPI_Pending) && (r->opnum != op_MAPI_BufferTooSmall)) {
 			ndr_print_uint8(ndr, "handle_idx", r->handle_idx);
 			ndr_print_MAPISTATUS(ndr, "error_code", r->error_code);
 			if (r->error_code == MAPI_E_SUCCESS) {
@@ -2815,11 +2815,40 @@ enum ndr_err_code ndr_pull_BufferTooSmall_req(struct ndr_pull *ndr, int ndr_flag
 
 enum ndr_err_code ndr_push_BufferTooSmall_repl(struct ndr_push *ndr, int ndr_flags, const struct BufferTooSmall_repl *r)
 {
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		NDR_PUSH_CHECK_FLAGS(ndr, ndr_flags);
+		if (ndr_flags & NDR_SCALARS) {
+			NDR_CHECK(ndr_push_align(ndr, 2));
+			NDR_CHECK(ndr_push_uint16(ndr, NDR_SCALARS, r->SizeNeeded));
+			NDR_CHECK(ndr_push_trailer_align(ndr, 2));
+		}
+		if (ndr_flags & NDR_BUFFERS) {
+		}
+		ndr->flags = _flags_save_STRUCT;
+	}
 	return NDR_ERR_SUCCESS;
 }
 
 enum ndr_err_code ndr_pull_BufferTooSmall_repl(struct ndr_pull *ndr, int ndr_flags, struct BufferTooSmall_repl *r)
 {
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		NDR_PULL_CHECK_FLAGS(ndr, ndr_flags);
+		if (ndr_flags & NDR_SCALARS) {
+			NDR_CHECK(ndr_pull_align(ndr, 2));
+			NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->SizeNeeded));
+			NDR_CHECK(ndr_pull_trailer_align(ndr, 2));
+
+			// There is nothing left to be parsed after this, the RequestBuffers field is just filler
+			ndr->offset = ndr->data_size;
+		}
+		if (ndr_flags & NDR_BUFFERS) {
+		}
+		ndr->flags = _flags_save_STRUCT;
+	}
 	return NDR_ERR_SUCCESS;
 }
 
