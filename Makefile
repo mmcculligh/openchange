@@ -694,21 +694,15 @@ mapiproxy: 		idl 					\
 			libmapiproxy				\
 			libmapiserver				\
 			libmapistore				\
-			mapiproxy/dcesrv_mapiproxy.$(SHLIBEXT) 	\
-			mapiproxy/dcesrv_asyncemsmdb.$(SHLIBEXT)\
-			mapiproxy-modules			\
-			mapiproxy-servers
+			mapiproxy/dcesrv_mapiproxy.$(SHLIBEXT) 	
 
 mapiproxy-install: 	mapiproxy				\
-			mapiproxy-modules-install		\
-			mapiproxy-servers-install		\
 			libmapiproxy-install			\
 			libmapiserver-install			\
 			libmapistore-installpc			\
 			libmapistore-install
 	$(INSTALL) -d $(DESTDIR)$(DCERPC_SERVER_MODULESDIR)
 	$(INSTALL) -m 0755 mapiproxy/dcesrv_mapiproxy.$(SHLIBEXT) $(DESTDIR)$(DCERPC_SERVER_MODULESDIR)
-	$(INSTALL) -m 0755 mapiproxy/dcesrv_asyncemsmdb.$(SHLIBEXT) $(DESTDIR)$(DCERPC_SERVER_MODULESDIR)
 
 mapiproxy-uninstall: 	mapiproxy-modules-uninstall		\
 			mapiproxy-servers-uninstall		\

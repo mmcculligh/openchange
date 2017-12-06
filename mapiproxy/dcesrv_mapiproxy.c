@@ -163,7 +163,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			}
 
 			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
-			char* properHostname = strupper_talloc(dce_call,b->host);
+			char* properHostname = strupper_talloc(dce_call,dcerpc_binding_get_string_option(b,"host"));
 			target_service = talloc_asprintf(dce_call,"exchangeRFR/%s", properHostname);
 			OC_DEBUG(5, "Target SPN %s", target_service);
 			cli_credentials_set_target_service(credentials, target_service);
@@ -194,7 +194,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			}
 
 			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
-			char* properHostname = strupper_talloc(dce_call,b->host);
+			char* properHostname = strupper_talloc(dce_call,dcerpc_binding_get_string_option(b,"host"));
 			target_service = talloc_asprintf(dce_call,"exchangeAB/%s",properHostname);
 			OC_DEBUG(5, "Target SPN %s", target_service);
 			cli_credentials_set_target_service(credentials, target_service);
@@ -218,7 +218,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			}
 
 			/* Set the target service princial name (SPN) for the S4U2Proxy stage */
-			char* properHostname = strupper_talloc(dce_call,b->host);
+			char* properHostname = strupper_talloc(dce_call,dcerpc_binding_get_string_option(b,"host"));
 			target_service = talloc_asprintf(dce_call,"exchangeMDB/%s", properHostname);
 			OC_DEBUG(5, "Target SPN %s", target_service);
 			cli_credentials_set_target_service(credentials, target_service);
@@ -255,16 +255,16 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 		}
 
 		/* Enable multiplex on the RPC pipe */
-		b->flags|= DCERPC_CONCURRENT_MULTIPLEX;
+		dcerpc_binding_set_flags(b,DCERPC_CONCURRENT_MULTIPLEX,0);
 
 		OC_DEBUG(3, "Using binding %s", dcerpc_binding_string(dce_call->context, b));
 
 		switch (dce_call->pkt.ptype) {
 		case DCERPC_PKT_BIND:
-			b->assoc_group_id = dce_call->context->assoc_group->proxied_id;
+			dcerpc_binding_set_assoc_group_id(b,dce_call->conn->assoc_group->proxied_id);
 			break;
 		case DCERPC_PKT_ALTER:
-			b->assoc_group_id = dce_call->context->assoc_group->proxied_id;
+			dcerpc_binding_set_assoc_group_id(b,dce_call->conn->assoc_group->proxied_id);
 			break;
 		default:
 			break;
@@ -282,7 +282,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			return status;
 		}
 
-		dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
+		//dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
 	} else {
 		status = dcerpc_pipe_connect(dce_call->context,
 					     &(private->c_pipe), binding, table,
@@ -297,7 +297,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			return status;
 		}
 
-		dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
+		//dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
 	}
 
 	private->connected = true;
@@ -319,7 +319,7 @@ static NTSTATUS mapiproxy_op_bind_proxy(struct dcesrv_call_state *dce_call, cons
 
 	table = ndr_table_by_uuid(&iface->syntax_id.uuid);
 	if (!table) {
-		dce_call->fault_code = DCERPC_FAULT_UNK_IF;
+		dce_call->fault_code = DCERPC_FAULT_OTHER;
 		return NT_STATUS_NET_WRITE_FAULT;
 	}
 
@@ -329,7 +329,7 @@ static NTSTATUS mapiproxy_op_bind_proxy(struct dcesrv_call_state *dce_call, cons
 			OC_DEBUG(5, "dcerpc_mapiproxy: Anonymous credentials being used by client");
 		}
 		else {
-			OC_DEBUG(5, "dcerpc_mapiproxy: Delegated credentials acquired from client for user %s\%s", private->credentials->domain, private->credentials->username);
+			OC_DEBUG(5, "dcerpc_mapiproxy: Delegated credentials acquired from client for user %s\%s", cli_credentials_get_domain(private->credentials), cli_credentials_get_username(private->credentials));
 		}
 	}
 
@@ -394,7 +394,7 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	if (server_mode == false) {
 		if (dce_call->pkt.ptype == DCERPC_PKT_BIND)
 		{
-			OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: Bind with initial assoc_group_id 0x%x, resulting assoc_group_id 0x%x",dce_call->pkt.u.bind.assoc_group_id, dce_call->context->assoc_group->id);
+			OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: Bind with initial assoc_group_id 0x%x, resulting assoc_group_id 0x%x",dce_call->pkt.u.bind.assoc_group_id, dce_call->conn->assoc_group->id);
 		}
 		else if (dce_call->pkt.ptype == DCERPC_PKT_ALTER)
 		{
@@ -1014,16 +1014,16 @@ NTSTATUS samba_init_module(void)
 	NTSTATUS status;
 
 	/* Step1. Register Exchange endpoints */
-	status = dcerpc_server_exchange_emsmdb_init();
+	status = dcerpc_server_exchange_emsmdb_init(NULL);
 	NT_STATUS_NOT_OK_RETURN(status);
 
-	status = dcerpc_server_exchange_nsp_init();
+	status = dcerpc_server_exchange_nsp_init(NULL);
 	NT_STATUS_NOT_OK_RETURN(status);
 
-	status = dcerpc_server_exchange_ds_rfr_init();
+	status = dcerpc_server_exchange_ds_rfr_init(NULL);
 	NT_STATUS_NOT_OK_RETURN(status);
 	
-	status = dcerpc_server_exchange_asyncemsmdb_init();
+	status = dcerpc_server_exchange_asyncemsmdb_init(NULL);
 	NT_STATUS_NOT_OK_RETURN(status);
 
 	/* Step2. Register Exchange ndr tables */
