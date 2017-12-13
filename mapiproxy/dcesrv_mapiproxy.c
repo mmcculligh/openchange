@@ -27,6 +27,9 @@
 #include "libmapi/libmapi.h"
 #include "libmapi/libmapi_private.h"
 
+struct server_id_buf { char buf[48]; }; /* probably a bit too large ... */
+char* server_id_str_buf(struct server_id id, struct server_id_buf *dst);
+
 /* Default interfaces to use if no others were specified in smb.conf. */
 #define DEFAULT_INTERFACES "exchange_emsmdb, exchange_nsp, exchange_ds_rfr"
 
@@ -282,7 +285,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			return status;
 		}
 
-		//dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
+		dce_call->conn->assoc_group->proxied_id = dcerpc_binding_get_assoc_group_id(private->c_pipe->binding);
 	} else {
 		status = dcerpc_pipe_connect(dce_call->context,
 					     &(private->c_pipe), binding, table,
@@ -297,7 +300,7 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			return status;
 		}
 
-		//dce_call->context->assoc_group->proxied_id = private->c_pipe->assoc_group_id;
+		dce_call->conn->assoc_group->proxied_id = dcerpc_binding_get_assoc_group_id(private->c_pipe->binding);
 	}
 
 	private->connected = true;
@@ -359,12 +362,10 @@ static NTSTATUS mapiproxy_op_bind(struct dcesrv_call_state *dce_call, const stru
 	bool					server_mode;
 	bool 					oa_mode;
 	bool					ndrdump;
-	char					*server_id_printable = NULL;
-	
-	server_id_printable = server_id_str(NULL, &(dce_call->conn->server_id));
+	struct server_id_buf	tmp;
+
 	OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: [session = 0x%x] [session server id = %s] [interface = %s]",
-		  dce_call->context->context_id, server_id_printable, iface->name);
-	talloc_free(server_id_printable);
+		  dce_call->context->context_id, server_id_str_buf(dce_call->conn->server_id, &tmp), iface->name);
 
 	OC_DEBUG(5, "mapiproxy::mapiproxy_op_bind: [session = 0x%x] [session server id = 0x%"PRIx64" 0x%x 0x%x]", dce_call->context->context_id,
 		  dce_call->conn->server_id.pid, dce_call->conn->server_id.task_id, dce_call->conn->server_id.vnn);
