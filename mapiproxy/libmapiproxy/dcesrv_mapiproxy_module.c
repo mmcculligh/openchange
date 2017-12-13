@@ -30,13 +30,17 @@
    \brief mapiproxy modules management
  */
 
+TALLOC_CTX* mem_ctx = NULL;
+
 static struct mp_module {
 	struct mapiproxy_module	*mp_module;
 } *mp_modules = NULL;
 
 int					num_mp_modules;
+
 static struct mapiproxy_module_list	*mpm_list = NULL;
 
+char **str_list_make_v3(TALLOC_CTX *mem_ctx, const char *string,  const char *sep);
 
 NTSTATUS mapiproxy_module_push(struct dcesrv_call_state *dce_call,
 			       TALLOC_CTX *mem_ctx, void *r)
@@ -155,13 +159,15 @@ extern NTSTATUS mapiproxy_module_register(const void *_mp_module)
 {
 	const struct mapiproxy_module	*mp_module = (const struct mapiproxy_module *) _mp_module;
 
-	mp_modules = realloc_p(mp_modules, struct mp_module, num_mp_modules + 1);
-	if (!mp_modules) {
-		smb_panic("out of memory in mapiproxy_register");
+	mp_modules = talloc_realloc(mem_ctx, mp_modules, struct mp_module, num_mp_modules + 1);
+    if (!mp_modules) {
+        //smb_panic("out of memory in mapiproxy_register");
+        return NT_STATUS_NO_MEMORY;
 	}
 
-	mp_modules[num_mp_modules].mp_module = (struct mapiproxy_module *) smb_xmemdup(mp_module, sizeof (*mp_module));
-	mp_modules[num_mp_modules].mp_module->name = smb_xstrdup(mp_module->name);
+	mp_modules[num_mp_modules].mp_module = talloc_zero(mem_ctx,struct mapiproxy_module);
+	memcpy(mp_modules[num_mp_modules].mp_module,mp_module,sizeof(struct mapiproxy_module));
+	mp_modules[num_mp_modules].mp_module->name = talloc_strdup(mem_ctx,mp_module->name);
 
 	num_mp_modules++;
 
@@ -179,27 +185,30 @@ static NTSTATUS mapiproxy_module_load(struct dcesrv_context *dce_ctx)
 	NTSTATUS			status;
 
 	/* Fetch the module list from smb.conf */
-	modules = str_list_make(dce_ctx, lpcfg_parm_string(dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "modules"), NULL);
+	modules = str_list_make_v3(dce_ctx, lpcfg_parm_string(dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "modules"), NULL);
+    if (modules)
+    {
+        /* Add modules to the list */
+        for (i = 0; modules[i]; i++) {
+            module = talloc_zero(dce_ctx, struct mapiproxy_module_list);
+            module->module = mapiproxy_module_byname(modules[i]);
+            if (module->module) {
+                DLIST_ADD_END(mpm_list, module, struct mapiproxy_module_list *);
+                oc_log(OC_LOG_INFO, "MAPIPROXY module '%s' loaded", modules[i]);
+                if (module->module->init) {
+                    status = module->module->init(dce_ctx);
+                    NT_STATUS_NOT_OK_RETURN(status);
+                }
+            } else {
+                oc_log(OC_LOG_WARNING, "MAPIPROXY module '%s' not found", modules[i]);
+            }
+        }
 
-	/* Add modules to the list */
-	for (i = 0; modules[i]; i++) {
-		module = talloc_zero(dce_ctx, struct mapiproxy_module_list);
-		module->module = mapiproxy_module_byname(modules[i]);
-		if (module->module) {
-			DLIST_ADD_END(mpm_list, module, struct mapiproxy_module_list *);
-			oc_log(OC_LOG_INFO, "MAPIPROXY module '%s' loaded", modules[i]);
-			if (module->module->init) {
-				status = module->module->init(dce_ctx);
-				NT_STATUS_NOT_OK_RETURN(status);
-			}
-		} else {
-			oc_log(OC_LOG_WARNING, "MAPIPROXY module '%s' not found", modules[i]);
-		}
-	}
-
-	for (module = mpm_list; module; module = module->next) {
-		OC_DEBUG(3, "mapiproxy_module_load '%s' (%s)", module->module->name, module->module->description);
-	}
+        for (module = mpm_list; module; module = module->next)
+        {
+            OC_DEBUG(3, "mapiproxy_module_load '%s' (%s)", module->module->name, module->module->description);
+        }
+    }
 
 	return NT_STATUS_OK;
 }
@@ -209,6 +218,8 @@ _PUBLIC_ NTSTATUS mapiproxy_module_init(struct dcesrv_context *dce_ctx)
 {
 	openchange_plugin_init_fn *mpm;
 	NTSTATUS			ret;
+
+    mem_ctx = talloc_init(NULL);
 
 	mpm = load_openchange_plugins(NULL, "dcerpc_mapiproxy");
 
