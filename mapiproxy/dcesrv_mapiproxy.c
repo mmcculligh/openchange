@@ -262,7 +262,10 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 
 		OC_DEBUG(3, "Using binding %s", dcerpc_binding_string(dce_call->context, b));
 
-		switch (dce_call->pkt.ptype) {
+		/* New connection should include the assoc_group_id if one was specified */
+		dcerpc_binding_set_assoc_group_id(b,dce_call->conn->assoc_group->proxied_id);
+
+		/*switch (dce_call->pkt.ptype) {
 		case DCERPC_PKT_BIND:
 			dcerpc_binding_set_assoc_group_id(b,dce_call->conn->assoc_group->proxied_id);
 			break;
@@ -271,8 +274,8 @@ static NTSTATUS mapiproxy_op_connect(struct dcesrv_call_state *dce_call,
 			break;
 		default:
 			break;
-		}
-		
+		}*/
+
 		pipe_conn_req = dcerpc_pipe_connect_b_send(dce_call->context, b, table,
 							   credentials, dce_call->event_ctx, dce_call->conn->dce_ctx->lp_ctx);
 		status = dcerpc_pipe_connect_b_recv(pipe_conn_req, dce_call->context, &(private->c_pipe));
