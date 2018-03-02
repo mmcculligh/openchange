@@ -576,7 +576,8 @@ static NTSTATUS mapiproxy_op_ndr_push(struct dcesrv_call_state *dce_call, TALLOC
 
 	dce_call->fault_code = 0;
 
-	if (private->server_mode == false) {
+    /* No need to mess with the replacments in OA mode */
+	if ((private->server_mode == false) && (private->oa_mode == false)){
 		/* NspiGetProps binding strings replacement */
 		if ((mapiproxy_server_loaded(NDR_EXCHANGE_NSP_NAME) == false) &&
 		    table->name && !strcmp(table->name, NDR_EXCHANGE_NSP_NAME)) {
