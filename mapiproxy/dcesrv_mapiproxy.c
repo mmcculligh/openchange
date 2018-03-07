@@ -873,6 +873,16 @@ static NTSTATUS mapiproxy_op_init_server(struct dcesrv_context *dce_ctx, const s
 
 	if (initialized == true) return NT_STATUS_OK;
 
+	memset(&iface,0,sizeof(iface));
+
+	/* Set the flag to allow multiprocess mode if operationg as a proxy */
+	bool server_mode = lpcfg_parm_bool(dce_ctx->lp_ctx, NULL, "dcerpc_mapiproxy", "server", true);
+	if (server_mode == false)
+	{
+		// Proxy doesn't need to shared handles between processes
+		iface.flags = DCESRV_INTERFACE_FLAGS_HANDLES_NOT_USED;
+	}
+
 	/* Register mapiproxy modules */
 	ret = mapiproxy_module_init(dce_ctx);
 	NT_STATUS_NOT_OK_RETURN(ret);
